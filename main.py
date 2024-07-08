@@ -1,20 +1,21 @@
-from fastapi import FastAPI, Depends, HTTPException, status
-from sqlalchemy import UUID
-from sqlalchemy.orm import Session
-from typing import List
-from datetime import timedelta
-from sqlalchemy.sql.annotation import Annotated
-from models import Base, Author, Category, Book, User
-from database import engine, session_scope
+import os
 import schemas
 import crud
-from auth import authenticate_user, create_access_token, get_current_user, get_current_admin_user, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES
+from fastapi import FastAPI, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from datetime import timedelta
+from models import Base, User
+from database import engine, session_scope
+from auth import (authenticate_user, create_access_token, get_current_user, get_current_admin_user, get_password_hash)
 from fastapi.security import OAuth2PasswordRequestForm
-from dependencies import get_current_admin_user, get_current_regular_user
+from dotenv import load_dotenv
+
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+load_dotenv()
+
 
 def get_db():
     with session_scope() as session:
@@ -30,15 +31,15 @@ async def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(minutes=int(os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES', 30)))
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     return schemas.Token(access_token=access_token, token_type="bearer")
 
 
-@app.post("/signup/", response_model=schemas.User)
-async def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+@app.post("/signup/")
+async def create_user(user: schemas.User, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.username == user.username).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
@@ -49,8 +50,9 @@ async def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.refresh(db_user)
     return db_user
 
+
 @app.get("/users/")
-async def read_authors(db: Session = Depends(get_db)):
+async def read_users(db: Session = Depends(get_db)):
     return db.query(User).all()
 
 
@@ -61,7 +63,7 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
 
 # CRUD operations for Authors
 @app.post("/authors/", dependencies=[Depends(get_current_admin_user)])
-async def create_author(author: schemas.AuthorCreate, db: Session = Depends(get_db)):
+async def create_author(author: schemas.Author, db: Session = Depends(get_db)):
     return crud.create_author(db=db, author=author)
 
 
@@ -79,22 +81,23 @@ async def read_author(author_id: str, db: Session = Depends(get_db)):
 
 
 @app.put("/authors/{author_id}", dependencies=[Depends(get_current_admin_user)])
-async def update_author(author_id: str, author: schemas.AuthorCreate, db: Session = Depends(get_db)):
+async def update_author(author_id: str, author: schemas.Author, db: Session = Depends(get_db)):
     db_author = crud.update_author(db=db, author_id=author_id, author=author)
     if db_author is None:
         raise HTTPException(status_code=404, detail="Book not found")
     return db_author
 
+
 @app.delete("/authors/{author_id}", dependencies=[Depends(get_current_admin_user)])
 async def delete_author(author_id: str, db: Session = Depends(get_db)):
     db_author = crud.delete_author(db=db, author_id=author_id)
-    if db_author is None:
-        raise HTTPException(status_code=404, detail="Category not found")
+    if not db_author.active:
+        raise HTTPException(status_code=404, detail="Author deleted")
     return db_author
 
 
 @app.post("/categories/", dependencies=[Depends(get_current_admin_user)])
-def create_category(category: schemas.CategoryCreate, db: Session = Depends(get_db)):
+def create_category(category: schemas.Category, db: Session = Depends(get_db)):
     return crud.create_category(db=db, category=category)
 
 
@@ -110,8 +113,9 @@ def read_category(category_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Category not found")
     return db_category
 
+
 @app.put("/categories/{category_id}", dependencies=[Depends(get_current_admin_user)])
-def update_category(category_id: str, category: schemas.CategoryCreate, db: Session = Depends(get_db)):
+def update_category(category_id: str, category: schemas.Category, db: Session = Depends(get_db)):
     db_category = crud.update_category(db=db, category_id=category_id, category=category)
     if db_category is None:
         raise HTTPException(status_code=404, detail="Category not found")
@@ -121,14 +125,15 @@ def update_category(category_id: str, category: schemas.CategoryCreate, db: Sess
 @app.delete("/categories/{category_id}", dependencies=[Depends(get_current_admin_user)])
 def delete_category(category_id: str, db: Session = Depends(get_db)):
     db_category = crud.delete_category(db=db, category_id=category_id)
-    if db_category is None:
-        raise HTTPException(status_code=404, detail="Category not found")
+    if not db_category.active:
+        raise HTTPException(status_code=404, detail="Category deleted")
     return db_category
 
 
 @app.post("/books/", dependencies=[Depends(get_current_admin_user)])
-def create_book(book: schemas.BookCreate, db: Session = Depends(get_db)):
+def create_book(book: schemas.Book, db: Session = Depends(get_db)):
     return crud.create_book(db=db, book=book)
+
 
 @app.get("/books/")
 def read_books(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
@@ -144,7 +149,7 @@ def read_book(book_id: str, db: Session = Depends(get_db)):
 
 
 @app.put("/books/{book_id}", dependencies=[Depends(get_current_admin_user)])
-def update_book(book_id: str, book: schemas.BookCreate, db: Session = Depends(get_db)):
+def update_book(book_id: str, book: schemas.Book, db: Session = Depends(get_db)):
     db_book = crud.update_book(db=db, book_id=book_id, book=book)
     if db_book is None:
         raise HTTPException(status_code=404, detail="Book not found")
@@ -154,6 +159,6 @@ def update_book(book_id: str, book: schemas.BookCreate, db: Session = Depends(ge
 @app.delete("/books/{book_id}", dependencies=[Depends(get_current_admin_user)])
 def delete_book(book_id: str, db: Session = Depends(get_db)):
     db_book = crud.delete_book(db=db, book_id=book_id)
-    if db_book is None:
-        raise HTTPException(status_code=404, detail="Book not found")
+    if not db_book.active:
+        raise HTTPException(status_code=404, detail="Book deleted")
     return db_book

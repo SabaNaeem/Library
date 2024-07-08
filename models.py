@@ -1,17 +1,12 @@
-from sqlalchemy import Column, String, Date, ForeignKey, Text, Table, TIMESTAMP, CheckConstraint, DateTime, func
+import uuid
+from sqlalchemy import Column, String, Date, ForeignKey, Text, Table, TIMESTAMP, CheckConstraint, DateTime, func, \
+    Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
-import uuid
 
 Base = declarative_base()
 
-
-# book_categories = Table(
-#     'book_categories', Base.metadata,
-#     Column('book_id', UUID(as_uuid=True), ForeignKey('books.id', ondelete='CASCADE'), primary_key=True),
-#     Column('category_id', UUID(as_uuid=True), ForeignKey('categories.id', ondelete='CASCADE'), primary_key=True)
-# )
 
 class Author(Base):
     __tablename__ = 'authors'
@@ -23,6 +18,7 @@ class Author(Base):
     country = Column(String(100), nullable=False)
     email = Column(String(100), unique=True, nullable=False)
     books = relationship("Book", back_populates="author")
+    active = Column(Boolean, nullable=False, default=True)
 
 class Category(Base):
     __tablename__ = 'categories'
@@ -30,6 +26,9 @@ class Category(Base):
     name = Column(String(100), unique=True, nullable=False)
     description = Column(Text)
     books = relationship("Book", secondary='book_categories', back_populates="categories")
+    created_at = Column(DateTime, server_default=func.now())
+    active = Column(Boolean, nullable=False, default=True)
+
 
 class Book(Base):
     __tablename__ = 'books'
@@ -39,11 +38,15 @@ class Book(Base):
     author_id = Column(UUID(as_uuid=True), ForeignKey('authors.id'), nullable=False)
     author = relationship("Author", back_populates="books")
     categories = relationship("Category", secondary='book_categories', back_populates="books")
+    created_at = Column(DateTime, server_default=func.now())
+    active = Column(Boolean, nullable=False, default=True)
+
 
 class book_categories(Base):
     __tablename__ = 'book_categories'
     book_id = Column(UUID(as_uuid=True), ForeignKey('books.id', ondelete="CASCADE"), primary_key=True)
     category_id = Column(UUID(as_uuid=True), ForeignKey('categories.id', ondelete="CASCADE"), primary_key=True)
+
 
 class User(Base):
     __tablename__ = 'users'
