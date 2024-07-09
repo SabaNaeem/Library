@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 from datetime import timedelta
 from models import Base, User
 from database import engine, session_scope
-from auth import (authenticate_user, create_access_token, get_current_user, get_current_admin_user, get_password_hash)
+from auth import (authenticate_user, create_access_token, get_current_user, get_current_admin_user, get_password_hash,
+                  get_db)
 from fastapi.security import OAuth2PasswordRequestForm
 from dotenv import load_dotenv
 
@@ -15,11 +16,6 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 load_dotenv()
-
-
-def get_db():
-    with session_scope() as session:
-        yield session
 
 
 @app.post("/token")

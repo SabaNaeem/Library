@@ -161,18 +161,30 @@ def create_book(db: Session, book: schemas.Book):
 def get_books(db: Session, skip: int = 0, limit: int = 10):
     books = db.query(models.Book).filter(models.Book.active == True).offset(skip).limit(limit).all()
     result = []
-    for category in books:
+    for book in books:
+        categories = db.query(models.Category).join(models.book_categories).filter(
+            models.book_categories.book_id == book.id).all()
         result.append({
-            "id": category.id,
-            "name": category.name,
-            "description": category.description,
-            "books": books
+            "id": book.id,
+            "title": book.title,
+            "summary": book.summary,
+            "categories": categories
         })
     return result
 
 
 def get_book(db: Session, book_id: str):
-    return db.query(models.Book).filter(models.Book.id == book_id).first()
+    book = db.query(models.Book).filter(models.Book.id == book_id).first()
+    result = []
+    categories = db.query(models.Category).join(models.book_categories).filter(
+        models.book_categories.book_id == book.id).all()
+    result.append({
+        "id": book.id,
+        "title": book.title,
+        "summary": book.summary,
+        "categories": categories
+    })
+    return result
 
 
 def update_book(db: Session, book_id: str, book: schemas.Book):
