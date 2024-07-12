@@ -1,0 +1,13 @@
+{
+    "name": "Library",
+    "version": "1.0.0",
+    "author": "saba",
+    "dependencies": {
+        "serverless-python-requirements": "^5.4.0",
+        "serverless-wsgi": "^3.0.4"
+    },
+    "devDependencies": {
+        "serverless-offline": "^13.6.0",
+        "serverless-openapi-documenter": "^0.0.103"
+    }
+}

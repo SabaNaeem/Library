@@ -1,0 +1,33 @@
+service: fastapi-app
+
+provider:
+  name: aws
+  runtime: python3.11
+  timeout: 1800
+
+functions:
+  app:
+    handler: main.handler
+    events:
+      - httpApi:
+          path: '*'
+          method: any
+      - httpApi:
+          path: /{proxy+}/
+          method: '*'
+
+plugins:
+  - serverless-python-requirements
+  - serverless-offline
+  - serverless-openapi-documenter
+
+custom:
+  pythonRequirements:
+    dockerizePip: true
+    layer: true
+
+
+package:
+  exclude:
+    - node_modules/**
+    - venv/**

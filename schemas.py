@@ -2,6 +2,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import date, datetime
 
+class EmailSchema(BaseModel):
+    email: str
 
 class Book(BaseModel):
     title: str
@@ -45,4 +47,4 @@ class User(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
-
+    role: str

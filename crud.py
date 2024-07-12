@@ -11,6 +11,15 @@ def create_author(db: Session, author: schemas.Author):
     db.refresh(db_author)
     return db_author
 
+def is_verified(db: Session, user_id: str):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if db_user and not db_user.is_verified:
+        db_user.is_verified = True
+        db.commit()
+        db.refresh(db_user)  # Refresh the instance to reflect the updated values
+        return db_user
+    return None
+
 
 def get_authors(db: Session, skip: int = 0, limit: int = 10):
     authors = db.query(models.Author).filter(models.Author.active == True).offset(skip).limit(limit).all()
@@ -59,7 +68,7 @@ def update_author(db: Session, author_id: str, author: schemas.Author):
 
 def delete_author(db: Session, author_id: str):
     db_author = db.query(models.Author).filter(models.Author.id == author_id).first()
-    if db_author:
+    if db_author and db_author.active:
         setattr(db_author, "active", False)
         db.commit()
     return db_author
@@ -116,7 +125,7 @@ def update_category(db: Session, category_id: str, category: schemas.Category):
 
 def delete_category(db: Session, category_id: str):
     db_category = db.query(models.Category).filter(models.Category.id == category_id).first()
-    if db_category:
+    if db_category and db_category.active:
         setattr(db_category, "active", False)
         db.commit()
     return db_category
@@ -201,7 +210,7 @@ def update_book(db: Session, book_id: str, book: schemas.Book):
 
 def delete_book(db: Session, book_id: str):
     db_book = db.query(models.Book).filter(models.Book.id == book_id).first()
-    if db_book:
+    if db_book and db_book.active:
         setattr(db_book, "active", False)
         db.commit()
     return db_book
