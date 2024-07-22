@@ -57,3 +57,27 @@ class User(Base):
     role = Column(String(50), CheckConstraint("role IN ('admin', 'user')"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     is_verified = Column(Boolean, nullable=False, default=False)
+
+    sessions = relationship('Sessions', back_populates='users')
+
+class Chats(Base):
+    __tablename__ = 'chats'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id = Column(UUID(as_uuid=True), ForeignKey('sessions.id', ondelete='CASCADE'), nullable=False)
+    sent = Column(Text, nullable=False)
+    receive = Column(Text, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    sessions = relationship('Sessions', back_populates='chats')
+
+class Sessions(Base):
+    __tablename__ = 'sessions'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(100), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    modified_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+
+    users = relationship('User', back_populates='sessions')
+    chats = relationship('Chats', back_populates='sessions')

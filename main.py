@@ -3,9 +3,8 @@ import auth
 import models
 import schemas
 import crud
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import g4f
+import tiktoken
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import timedelta
@@ -17,11 +16,41 @@ from fastapi.security import OAuth2PasswordRequestForm
 from dotenv import load_dotenv
 from mangum import Mangum
 from email_validator import validate_email, EmailNotValidError
+from g4f.client import Client
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="MyAwesomeApp")
 load_dotenv()
+
+client = Client()
+
+def input_length(text):
+    encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+    num_tokens = len(encoding.encode(text))
+    return num_tokens
+
+def response(text):
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": text}],
+    )
+    # print(response.choices[0].message.content)
+    return response.choices[0].message.content
+
+def chunking(text):
+    size_chunk = 100
+    prompt = """
+                Summarize this message in 10-20 words
+                """
+    chunks = [text[i:i + size_chunk] for i in range(0, len(text), size_chunk)]
+    chunks.append(prompt)
+    # print(chunks)
+    result = []
+    for chunk in chunks:
+        result.append(response(chunk))
+    return response(result)
+
 
 @app.post("/token")
 async def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
@@ -89,7 +118,7 @@ async def create_user(user: schemas.User, db: Session = Depends(get_db)):
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
-    schemas.Token(access_token=access_token, token_type="bearer")
+    schemas.Token(access_token=access_token, token_type="bearer", role=user.role)
     await auth.send_email(db, db_user, access_token)
     return db_user
 
@@ -204,5 +233,58 @@ async def delete_book(book_id: str, db: Session = Depends(get_db)):
     if not db_book.active:
         raise HTTPException(status_code=404, detail="Book deleted")
     return db_book
+
+@app.post("/sessions")
+async def create_session(session: schemas.Session, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    session = crud.create_session(db, session, current_user)
+    return session
+
+@app.get("/sessions/{session_name}")
+async def get_session(session_name: str, db: Session = Depends(get_db)):
+    db_session = crud.get_session(db, name=session_name)
+    if db_session is None:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return db_session
+
+
+@app.get("/sessions")
+async def read_sessions(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+    return crud.get_user_session(db=db, skip=skip, limit=limit)
+
+@app.get("/chat/{session_id}")
+async def fetch_chat(session_id: str, db: Session = Depends(get_db)):
+    chats = crud.get_chat(db, session_id)
+    if chats is None:
+        raise HTTPException(status_code=404, detail="Book not found")
+    return chats
+
+@app.post("/chat/{prompt}")
+async def response_message(chat: schemas.Chats, db: Session = Depends(get_db)):
+    chat_dict = chat.dict()
+    # text = "SHITPPVFNVCW
+    chats = crud.get_chat(db, chat_dict["session_id"])
+    chat_history = ""
+    if chats:
+        for chat in chats:
+            chat_history += f"{chat['receive']}\n"
+
+    if input_length(chat_history) > 500:
+        print("I am here!!!")
+        chat_history = chunking(chat_history)
+        chat_history += chat_dict["sent"]
+    else:
+        chat_history += chat_dict["sent"]
+        chat_history += """
+                            Provide the shortest response in english"""
+    receive = response(chat_history)
+    chat_dict["receive"] = receive
+    message = models.Chats(**chat_dict)
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+    return message
 
 handler = Mangum(app)

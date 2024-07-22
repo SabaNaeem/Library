@@ -214,3 +214,38 @@ def delete_book(db: Session, book_id: str):
         setattr(db_book, "active", False)
         db.commit()
     return db_book
+
+def create_session(db: Session, session: schemas.Session, current_user: models.User):
+    session_dict = session.dict()
+    session_dict["user_id"] = current_user.id
+    db_session = models.Sessions(**session_dict)
+    db.add(db_session)
+    db.commit()
+    db.refresh(db_session)
+    return session
+
+def get_session(db: Session, name: str):
+    session = db.query(models.Sessions).filter(models.Sessions.name == name).first()
+    return session
+
+def get_user_session(db: Session, skip: int = 0, limit: int = 10):
+    sessions = db.query(models.Sessions).filter().offset(skip).limit(limit).all()
+    result = []
+    for session in sessions:
+        result.append({
+            "id": session.id,
+            "name": session.name,
+            "created_at": session.created_at,
+            "modified_at": session.modified_at
+        })
+    return result
+
+def get_chat(db: Session, session_id: str):
+    chats = db.query(models.Chats).filter(models.Chats.session_id == session_id).all()
+    result = []
+    for chat in chats:
+        result.append({
+            "sent": chat.sent,
+            "receive": chat.receive
+        })
+    return result

@@ -12,7 +12,7 @@ class Book(BaseModel):
     categories: List[str] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class Author(BaseModel):
     first_name: str
@@ -23,7 +23,7 @@ class Author(BaseModel):
     email: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class Category(BaseModel):
@@ -31,7 +31,7 @@ class Category(BaseModel):
     description: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class User(BaseModel):
@@ -41,10 +41,24 @@ class User(BaseModel):
     role: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class Token(BaseModel):
     access_token: str
     token_type: str
     role: str
+
+class Chats(BaseModel):
+    sent: str
+    session_id: str
+
+    class Config:
+        from_attributes = True
+
+class Session(BaseModel):
+    name: str
+    # user_id: str
+
+    class Config:
+        from_attributes = True

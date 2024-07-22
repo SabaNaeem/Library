@@ -1,7 +1,7 @@
 import os
 from contextlib import contextmanager
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -22,6 +22,16 @@ try:
 except Exception as e:
     print(f"Error connecting to database: {e}")
     raise
+
+# inspector = inspect(engine)
+#
+# # Get table names
+# tables = inspector.get_table_names()
+#
+# # Print table names
+# print("Tables in the database:")
+# for table in tables:
+#     print(table)
 
 @contextmanager
 def session_scope():
